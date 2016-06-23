@@ -52,8 +52,8 @@ def main():
 		os.system("rm -rf a")
 		os.system("mkdir -p a/a1")
 		os.system("mkdir -p a/a2")
-		os.system("rm my_state.json ; mpirun -np 2  ./test_program_state_stack.py %d a/a1/"%counter)
-		os.system("mpirun -np 2 ./test_program_state_stack.py 100000 a/a2/")
+		os.system("rm my_state.json ; mpirun -np 2 python long_computation_test.py %d a/a1/"%counter)
+		os.system("mpirun -np 2 python long_computation_test.py 100000 a/a2/")
 		myhashes.append(GetHashofDirs("a"))
 		
 		sys.stdout.write("%d "%counter + str(len(set(myhashes)) == 1) + " ")

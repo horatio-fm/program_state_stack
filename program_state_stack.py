@@ -24,6 +24,46 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 
+
+def if_error_then_all_processes_exit_program(error_status):
+	import sys, os
+	from utilities import print_msg
+
+	if "OMPI_COMM_WORLD_SIZE" not in os.environ:
+		def mpi_comm_rank(n): return 0
+		def mpi_bcast(*largs):
+			return [largs[0]]
+		def mpi_finalize():
+			return None
+		MPI_INT, MPI_COMM_WORLD = 0, 0
+	else:
+		from mpi import mpi_comm_rank, mpi_bcast, mpi_finalize, MPI_INT, MPI_COMM_WORLD
+
+	myid = mpi_comm_rank(MPI_COMM_WORLD)
+	if error_status != None and error_status != 0:
+		error_status_info = error_status
+		error_status = 1
+	else:
+		error_status = 0
+
+	error_status = mpi_bcast(error_status, 1, MPI_INT, 0, MPI_COMM_WORLD)
+	error_status = int(error_status[0])
+
+	if error_status > 0:
+		if myid == 0:
+			if type(error_status_info) == type((1,1)):
+				if len(error_status_info) == 2:
+					frameinfo = error_status_info[1]
+					print_msg("***********************************\n")
+					print_msg("** Error: %s\n"%error_status_info[0])
+					print_msg("***********************************\n")
+					print_msg("** Location: %s\n"%(frameinfo.filename + ":" + str(frameinfo.lineno)))
+					print_msg("***********************************\n")
+		sys.stdout.flush()
+		mpi_finalize()
+		sys.exit(1)
+
+
 def store_program_state(filename, state, stack):
 	import json
 	with open(filename, "w") as fp:
@@ -72,7 +112,7 @@ def program_state_stack(full_current_state, frameinfo, file_name_of_saved_state=
 
 	from traceback import extract_stack
 	from mpi import mpi_comm_rank, mpi_bcast, MPI_COMM_WORLD, MPI_INT
-	from utilities import if_error_all_processes_quit_program
+	
 	import os
 
 	def get_current_stack_info():
@@ -83,7 +123,7 @@ def program_state_stack(full_current_state, frameinfo, file_name_of_saved_state=
 	START_EXECUTING_ONLY_ONE_TIME_THEN_REVERT = 2
 	
 	# error_status = 1
-	# if_error_all_processes_quit_program(error_status)
+	# if_error_then_all_processes_exit_program(error_status)
 	
 	current_state = dict()
 	for var in program_state_stack.PROGRAM_STATE_VARIABLES & set(full_current_state) :
@@ -180,7 +220,7 @@ def program_state_stack(full_current_state, frameinfo, file_name_of_saved_state=
 	else:
 		program_state_stack.start_executing = START_EXECUTING_FALSE
 		
-	if_error_all_processes_quit_program(error_status)	
+	if_error_then_all_processes_exit_program(error_status)
 		
 	program_state_stack.start_executing = mpi_bcast(program_state_stack.start_executing, 1, MPI_INT, 0, MPI_COMM_WORLD)
 	program_state_stack.start_executing = int(program_state_stack.start_executing[0])
